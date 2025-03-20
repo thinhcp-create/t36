@@ -1,0 +1,4 @@
+pyuic5 -x app.ui -o gui.py
+--break-system-packages
+/etc/systemd/system/myscript.service
+sudo systemctl edit myscript.service
