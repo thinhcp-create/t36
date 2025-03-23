@@ -2,3 +2,20 @@ pyuic5 -x app.ui -o gui.py
 --break-system-packages
 /etc/systemd/system/myscript.service
 sudo systemctl edit myscript.service
+mở desktop tạo terminal 2 dòng dưới
+mkdir -p ~/.config/autostart
+nano ~/.config/autostart/socketio.desktop
+
+dán vào 
+[Desktop Entry]
+Type=Application
+Exec=/usr/bin/python3 /home/admin1/Documents/test_qt5/socketIO.py
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name=SocketIO App
+
+
+
+ẩn chuột 
+unclutter -idle 0.1 &

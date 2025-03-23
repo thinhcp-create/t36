@@ -18,6 +18,7 @@ class Ui_MainWindow(object):
         font = QtGui.QFont()
         font.setPointSize(13)
         MainWindow.setFont(font)
+        MainWindow.setCursor(QtGui.QCursor(QtCore.Qt.BlankCursor))
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.label_logo = QtWidgets.QLabel(self.centralwidget)

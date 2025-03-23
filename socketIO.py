@@ -28,7 +28,33 @@ import server
 from datetime import datetime
 import design
 import re
-
+import socketio
+import json
+import os
+import time
+import threading
+import subprocess
+from playsound import playsound
+from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QTimer
+import serial.tools.list_ports
+global gps
+global timeout,timeoutflag,t
+timeout = 0
+t = 0
+timeoutflag = False
+gps = False
+def find_usb_serial_port(baudrate=9600, timeout=0.1):
+    ports = serial.tools.list_ports.comports()
+    for port in ports:
+        if port.device.startswith('/dev/ttyUSB'):
+            try:
+                ser = serial.Serial(port.device, baudrate=baudrate, timeout=timeout)
+                print(f"Kết nối thành công với {port.device}")
+                return ser
+            except serial.SerialException as e:
+                print(f"Không thể mở {port.device}: {e}")
+    print("Không tìm thấy cổng /dev/ttyUSB nào hoạt động.")
 
 def decimal_to_dms(decimal):
     degrees = int(decimal)
@@ -62,42 +88,82 @@ class UARTReceiveThread(threading.Thread):
         self.queue_uart = queue_uart
         self.running = True
         self.mySocket = mySocket
-        self.mySocket.toa_do.setText("Đang chờ dữ liệu GPS...")
-        self.mySocket.tram_xe.setText("N/A")
+        if self.ser is not None and self.ser.is_open == True:
+            self.mySocket.toa_do.setText("Đang chờ dữ liệu GPS...")
+            self.mySocket.tram_xe.setText("N/A")
+        
         # print("Đang chờ dữ liệu GPS...")
     def run(self):
+        global timeout,timeoutflag,t
         while self.running:
-            if self.ser.is_open and self.ser.in_waiting > 0:
+            if self.ser is None or self.ser.is_open == False:
+                time.sleep(1)
                 try:
-                    data = self.ser.readline().decode(errors='ignore').strip()
-                    if data.startswith("$GPGGA") or data.startswith("$GNGGA"):
-                        try:
-                            msg = pynmea2.parse(data)
-                            # Kiểm tra độ tin cậy
-                            if float(msg.gps_qual) < 1 or int(msg.num_sats) < 2 or float(msg.horizontal_dil) > 4.0:
+                    self.ser = find_usb_serial_port()
+                    if self.ser is not None and self.ser.is_open == True:
+                        self.mySocket.toa_do.setStyleSheet("color: black")
+                        self.mySocket.toa_do.setText("Đang chờ dữ liệu GPS...")
+                        self.mySocket.tram_xe.setText("N/A")
+                    else:
+                        self.mySocket.toa_do.setStyleSheet("color: red")
+                        self.mySocket.toa_do.setText("Không thể kết nối với module GPS!")
+                except serial.SerialException:
+                    print("Không thể kết nối với module GPS! Kiểm tra cổng COM.")
+                continue
+            # if timeoutflag == False:
+            #     t = time.time()
+                # print(t)
+            if timeoutflag == True:
+                if time.time() - t > timeout:
+                    self.mySocket.so_cccd.setText("")
+                    self.mySocket.ngay_cap.setText("")
+                    self.mySocket.ngay_het_han.setText("")
+                    self.mySocket.ho_ten.setText("")
+                    self.mySocket.ngay_sinh.setText("")
+                    self.mySocket.gioi_tinh.setText("")
+                    self.mySocket.que_quan.setText("")
+                    self.mySocket.quoc_tich.setText("")
+                    self.mySocket.avt.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/cccd.jpg"))
+                    # print("Đã xóa toàn bộ dữ liệu hiển thị")
+                    timeoutflag = False
+                    t = time.time()
+            try:
+                if self.ser.is_open and self.ser.in_waiting > 0:
+                    try:
+                        data = self.ser.readline().decode(errors='ignore').strip()
+                        if data.startswith("$GPGGA") or data.startswith("$GNGGA"):
+                            try:
+                                msg = pynmea2.parse(data)
+                                # Kiểm tra độ tin cậy
+                                if float(msg.gps_qual) < 1 or int(msg.num_sats) < 2 or float(msg.horizontal_dil) > 4.0:
+                                    locale.setlocale(locale.LC_TIME, 'vi_VN.UTF-8')
+                                    system_time = time.strftime("%A, %H:%M:%S - %d/%m/%Y ", time.localtime())  
+                                    self.mySocket.time.setText(system_time)
+                                    # print(f"Thời gian: {system_time}")
+                                    continue
+                                # print(msg.latitude)
+                                # print(msg.longitude)
+                                self.mySocket.tram_xe.setText(get_station(msg.latitude, msg.longitude))
+                                lat_dms = decimal_to_dms(msg.latitude) + msg.lat_dir
+                                lon_dms = decimal_to_dms(msg.longitude) + msg.lon_dir
                                 locale.setlocale(locale.LC_TIME, 'vi_VN.UTF-8')
                                 system_time = time.strftime("%A, %H:%M:%S - %d/%m/%Y ", time.localtime())  
                                 self.mySocket.time.setText(system_time)
-                                # print(f"Thời gian: {system_time}")
-                                continue
-                            # print(msg.latitude)
-                            # print(msg.longitude)
-                            self.mySocket.tram_xe.setText(get_station(msg.latitude, msg.longitude))
-                            lat_dms = decimal_to_dms(msg.latitude) + msg.lat_dir
-                            lon_dms = decimal_to_dms(msg.longitude) + msg.lon_dir
-                            locale.setlocale(locale.LC_TIME, 'vi_VN.UTF-8')
-                            system_time = time.strftime("%A, %H:%M:%S - %d/%m/%Y ", time.localtime())  
-                            self.mySocket.time.setText(system_time)
-                            self.mySocket.toa_do.setText(f"{lat_dms} {lon_dms}")
-                            # print(f"Vĩ độ: {lat_dms}")
-                            # print(f"Kinh độ: {lon_dms:}")
-                            # print("-" * 40)
+                                self.mySocket.toa_do.setText(f"{lat_dms} {lon_dms}")
+                                # print(f"Vĩ độ: {lat_dms}")
+                                # print(f"Kinh độ: {lon_dms:}")
+                                # print("-" * 40)
 
-                        except pynmea2.ParseError:
-                            continue
-                except Exception as e:
-                    self.mySocket.log.setText(f"UART Receive Error: {e}")
-                    # print(f"UART Receive Error: {e}")
+                            except pynmea2.ParseError:
+                                continue
+                    except (serial.SerialException, OSError) as e:
+                        # self.mySocket.log.setText(f"UART Receive Error: {e}")
+                        print(f"UART Receive Error: {e}")
+            except (serial.SerialException, OSError) as e:
+                self.mySocket.toa_do.setStyleSheet("color: red")
+                self.mySocket.tram_xe.setText("")
+                self.ser.is_open = False
+                self.mySocket.toa_do.setText("Không thể kết nối với module GPS!")
             time.sleep(0.01)
 
     def stop(self):
@@ -105,7 +171,7 @@ class UARTReceiveThread(threading.Thread):
 
 
 def mask_last_four_digits(original_str):
-    masked_str = original_str[:-4] + "****" if len(original_str) > 4 else "****"
+    masked_str = original_str[:-4] + "****" if len(original_str) > 4 else ""
     return masked_str
 # Xử lý cho máy đọc
 def base64_to_pixmap(base64_string):
@@ -118,15 +184,14 @@ class mySocketClass(guiHandle):
     def __init__(self,mygui,so_cccd,ngay_cap,ngay_het_han,ho_ten,ngay_sinh,gioi_tinh,que_quan,quoc_tich):
         # print('inited mySocket instance inherit from ',super().nameClass)
         guiHandle.__init__(self,mygui)
-        
+    
+
 class socketThreadClass(threading.Thread):
     def __init__(self, mySocket, sio):
         super().__init__()
         self.mySocket = mySocket
         self.sio = sio
         self.register_events()
-        # Gọi hàm để kiểm tra và mở cổng 8000 nếu cần
-        # open_firewall_port()
 
     def register_events(self):
         @self.sio.event
@@ -191,6 +256,10 @@ class socketThreadClass(threading.Thread):
                     g_gioi_tinh = ""
                     g_que_quan = ""
                     g_quoc_tich = ""
+                    global timeout,timeoutflag,t
+                    timeout = 60
+                    timeoutflag = True
+                    t = time.time()
                     # print(f"CCCD: {g_so_cccd}")
                     # print(f"Ngày cấp: {g_ngay_cap}")
                     # print(f"Ngày hết hạn: {g_ngay_het_han}")
@@ -204,8 +273,14 @@ class socketThreadClass(threading.Thread):
 
 
     def run(self):
-        self.sio.connect('http://192.168.5.1:8000')
-        self.sio.wait()
+        while True:
+            try:
+                self.sio.connect('http://192.168.5.1:8000')
+                self.sio.wait()
+            except Exception as e:
+                # print(f"Socket connection failed: {e}. Retrying in 5 seconds...")
+                time.sleep(1)
+
 
         
 def runTest():
@@ -230,26 +305,60 @@ def runTest():
     gui= guiHandle(ui)
     sio = socketio.Client()
     mySocket = mySocketClass(ui,g_so_cccd, g_ngay_cap,g_ngay_het_han,g_ho_ten,g_ngay_sinh,g_gioi_tinh,g_que_quan,g_quoc_tich)
+    ser = None
     try:
-        ser = serial.Serial(port="/dev/ttyUSB0", baudrate=9600, timeout=0.1) 
+        ser = find_usb_serial_port()
     except serial.SerialException: 
+        mySocket.toa_do.setStyleSheet("color: red")
+        mySocket.toa_do.setText("Không thể kết nối với module GPS!")
         # print("Không thể kết nối với module GPS! Kiểm tra cổng COM.")
-        mySocket.log.setText("Không thể kết nối với module GPS! Kiểm tra cổng UART.")
+        # mySocket.log.setText("Không thể kết nối với module GPS! Kiểm tra cổng UART.")
+    socketThread = socketThreadClass(mySocket,sio) #tao instance running serial task
+    socketThread.start()
     uart_queue = queue.Queue()
     uart_receive_thread = UARTReceiveThread(mySocket,ser, uart_queue)
     uart_receive_thread.start()
-    socketThread = socketThreadClass(mySocket,sio) #tao instance running serial task
-    socketThread.start()
-
+    
+    
+    mySocket.label_logo.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/logo_t07.png"))
+    mySocket.avt.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/cccd.jpg"))
+    mySocket.avt_2.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/bus.png"))
+    # ui.showFullScreen()
     ui.show()
     # ui.setStyleSheet(design.app_style)
     app.exec_()
-
+    # wifi_thread = threading.Thread(target=monitor_wifi, daemon=True)
+    # wifi_thread.start()
     print('window close')
     uart_receive_thread.stop()
     uart_receive_thread.join()
     sio.disconnect()  # Ngắt kết nối trước khi kết thúc chương trình
     socketThread.join()  # Đợi thread hoàn thành
     print('done')
+#  # Hàm theo dõi sự kiện WiFi
+# def monitor_wifi():
+#     print("Bắt đầu theo dõi sự kiện WiFi...")
+#     process = subprocess.Popen(["nmcli", "monitor"], stdout=subprocess.PIPE, text=True)
+
+#     for line in process.stdout:
+#          if "wlan0: connected" in line :
+#             print("WiFi đã kết nối!")
+#             os.system(f"echo {password} | sudo -S nmcli device disconnect {interface}")
+#             time.sleep(2)
+#             os.system(f"echo {password} | sudo -S nmcli device connect {interface}") 
 if __name__ == "__main__":
+    # interface = "enu1"  # Thay bằng tên giao diện mạng của bạn
+    # password = "1"
+
+    # # Tắt mạng
+    # # time.sleep(5)
+    # os.system(f"echo {password} | sudo -S nmcli device disconnect {interface}")
+    # time.sleep(5)
+
+    # # Bật mạng
+    # os.system(f"echo {password} | sudo -S nmcli device connect {interface}")
+    # time.sleep(5)
+   
+    # # Khởi động luồng theo dõi WiFi
+    
     runTest()      

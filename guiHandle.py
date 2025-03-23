@@ -5,6 +5,7 @@ class guiHandle(Ui_MainWindow):
     nameClass = "guiHandle"
     def __init__(self,gui):
         self.setupUi(gui)
+        # self.setCursor(QtCore.Qt.BlankCursor)
         # viet code xu ly su kien o day
 
 

@@ -15,6 +15,9 @@
     <pointsize>13</pointsize>
    </font>
   </property>
+  <property name="cursor">
+   <cursorShape>BlankCursor</cursorShape>
+  </property>
   <property name="windowTitle">
    <string>T36 - THIẾT BỊ ĐỌC CCCD</string>
   </property>
