@@ -51,14 +51,14 @@ def bypass_infinityfree(url, params):
     cached_cookie = load_cached_cookie()
     if cached_cookie:
         print(f"Thử dùng cookie cache: {cached_cookie}")
-        resp_try = session.get(url, params=params, headers=headers, cookies={"__test": cached_cookie})
+        resp_try = session.get(url, params=params, headers=headers, cookies={"__test": cached_cookie},timeout=20)
         if "__test=" not in resp_try.text and "Javascript" not in resp_try.text:
             print("Bypass thành công bằng cookie đã lưu.")
             return resp_try.status_code, resp_try.text
         else:
             print("Cookie cached không dùng được, sẽ giải mã key mới.")
     # Request đầu tiên để lấy JS challenge
-    response = session.get(url, params=params, headers=headers)
+    response = session.get(url, params=params, headers=headers,timeout=20)
     html = response.text
 
     # Nếu có JS challenge
@@ -71,7 +71,7 @@ def bypass_infinityfree(url, params):
         cookies = {
             "__test": cookie_val
         }
-        response_2 = session.get(url, params=params, headers=headers, cookies=cookies)
+        response_2 = session.get(url, params=params, headers=headers, cookies=cookies,timeout=20)
         return response_2.status_code, response_2.text
     else:
         # Không bị challenge, trả về luôn

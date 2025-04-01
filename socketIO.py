@@ -38,10 +38,15 @@ from playsound import playsound
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QTimer
 import serial.tools.list_ports
+import sys
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
+from PyQt5.QtCore import QUrl
 global gps
-global timeout,timeoutflag,t
+global timeout,timeoutflag,t,count
+count = 0
 timeout = 0
-t = 0
+t = time.time()
 timeoutflag = False
 gps = False
 def find_usb_serial_port(baudrate=9600, timeout=0.1):
@@ -90,7 +95,7 @@ class UARTReceiveThread(threading.Thread):
         self.mySocket = mySocket
         if self.ser is not None and self.ser.is_open == True:
             self.mySocket.toa_do.setText("Đang chờ dữ liệu GPS...")
-            self.mySocket.tram_xe.setText("N/A")
+            self.mySocket.tram_xe.setText("A")
         
         # print("Đang chờ dữ liệu GPS...")
     def run(self):
@@ -110,23 +115,41 @@ class UARTReceiveThread(threading.Thread):
                 except serial.SerialException:
                     print("Không thể kết nối với module GPS! Kiểm tra cổng COM.")
                 continue
-            # if timeoutflag == False:
-            #     t = time.time()
+            if timeoutflag == False:
+                t = time.time()
                 # print(t)
             if timeoutflag == True:
-                if time.time() - t > timeout:
-                    self.mySocket.so_cccd.setText("")
-                    self.mySocket.ngay_cap.setText("")
-                    self.mySocket.ngay_het_han.setText("")
-                    self.mySocket.ho_ten.setText("")
-                    self.mySocket.ngay_sinh.setText("")
-                    self.mySocket.gioi_tinh.setText("")
-                    self.mySocket.que_quan.setText("")
-                    self.mySocket.quoc_tich.setText("")
-                    self.mySocket.avt.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/cccd.jpg"))
-                    # print("Đã xóa toàn bộ dữ liệu hiển thị")
-                    timeoutflag = False
-                    t = time.time()
+                try:
+                    if time.time() - t > timeout:
+                        # print("timeout")
+                        self.mySocket.so_cccd.setText("")
+                        self.mySocket.ngay_cap.setText("")
+                        self.mySocket.ngay_het_han.setText("")
+                        self.mySocket.ho_ten.setText("")
+                        self.mySocket.ngay_sinh.setText("")
+                        self.mySocket.gioi_tinh.setText("")
+                        self.mySocket.que_quan.setText("")
+                        self.mySocket.quoc_tich.setText("")
+                        self.mySocket.log.setText("🚍 Xe buýt Hà Nội xin chào quý khách! 🚍")  # Thêm icon xe buýt nếu cần
+                        self.mySocket.avt.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/cccd.jpg"))
+                        # print("Đã xóa toàn bộ dữ liệu hiển thị")
+                        timeoutflag = False
+                        t = time.time()
+                except Exception as e:
+                        # print("timeout")
+                        self.mySocket.so_cccd.setText("")
+                        self.mySocket.ngay_cap.setText("")
+                        self.mySocket.ngay_het_han.setText("")
+                        self.mySocket.ho_ten.setText("")
+                        self.mySocket.ngay_sinh.setText("")
+                        self.mySocket.gioi_tinh.setText("")
+                        self.mySocket.que_quan.setText("")
+                        self.mySocket.quoc_tich.setText("")
+                        self.mySocket.log.setText("🚍 Xe buýt Hà Nội xin chào quý khách! 🚍")  # Thêm icon xe buýt nếu cần
+                        self.mySocket.avt.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/cccd.jpg"))
+                        # print("Đã xóa toàn bộ dữ liệu hiển thị")
+                        timeoutflag = False
+                        t = time.time()
             try:
                 if self.ser.is_open and self.ser.in_waiting > 0:
                     try:
@@ -144,6 +167,15 @@ class UARTReceiveThread(threading.Thread):
                                 # print(msg.latitude)
                                 # print(msg.longitude)
                                 self.mySocket.tram_xe.setText(get_station(msg.latitude, msg.longitude))
+                                global count
+                                count = count +1
+                                if count > 6:
+                                    # update_map(self.mySocket, msg.latitude, msg.longitude)
+                                    self.mySocket.on_load_finished(msg.latitude, msg.longitude)
+                                    count = 0
+
+                    
+                                #
                                 lat_dms = decimal_to_dms(msg.latitude) + msg.lat_dir
                                 lon_dms = decimal_to_dms(msg.longitude) + msg.lon_dir
                                 locale.setlocale(locale.LC_TIME, 'vi_VN.UTF-8')
@@ -169,6 +201,13 @@ class UARTReceiveThread(threading.Thread):
     def stop(self):
         self.running = False
 
+def convert_date_format(date_str):
+    # Chuyển từ d/m/y sang m/d/y
+    try:
+        date_obj = datetime.strptime(date_str, "%d/%m/%Y")
+        return date_obj.strftime("%m/%d/%Y")
+    except ValueError:
+        return "Invalid date format"
 
 def mask_last_four_digits(original_str):
     masked_str = original_str[:-4] + "****" if len(original_str) > 4 else ""
@@ -180,11 +219,31 @@ def base64_to_pixmap(base64_string):
     pixmap = QPixmap()
     pixmap.loadFromData(image_data)
     return pixmap
+# from PyQt5.QtCore import QMetaObject, Qt
+# def update_map(ui, lat, lon):
+#     js_code = f"window.changeMarkerCoordinates({lat}, {lon});"
+#     QMetaObject.invokeMethod(ui.webEngineView.page(), "runJavaScript",Qt.QueuedConnection, js_code)
+
 class mySocketClass(guiHandle):
     def __init__(self,mygui,so_cccd,ngay_cap,ngay_het_han,ho_ten,ngay_sinh,gioi_tinh,que_quan,quoc_tich):
         # print('inited mySocket instance inherit from ',super().nameClass)
         guiHandle.__init__(self,mygui)
-    
+        self.webEngineView.loadFinished.connect(self.on_load_finished)
+    def on_load_finished(self,lat= None,lon = None):
+        # Thay đổi tọa độ
+        if lat is None or lon is None:
+            new_lat, new_lon = 21.041000463711462, 106.09933048084626  # Giá trị mặc định hoặc lấy từ config
+        else:
+            new_lat = lat
+            new_lon = lon
+
+        # Mã JavaScript để thay đổi tọa độ marker
+        js_code = f"""
+            window.changeMarkerCoordinates({new_lat}, {new_lon});
+        """
+
+        # Chạy JavaScript trên trang web nhúng
+        self.webEngineView.page().runJavaScript(js_code)
 
 class socketThreadClass(threading.Thread):
     def __init__(self, mySocket, sio):
@@ -237,17 +296,30 @@ class socketThreadClass(threading.Thread):
                     self.mySocket.gioi_tinh.setText(g_gioi_tinh)
                     self.mySocket.que_quan.setText(g_que_quan)
                     self.mySocket.quoc_tich.setText(g_quoc_tich)
-                    self.mySocket.so_cccd.text
                     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    data = f"time:{current_time}\nid:{g_so_cccd}\nname:{self.mySocket.ho_ten.text()}\nbirth:{self.mySocket.ngay_sinh.text()}\ngender:{self.mySocket.gioi_tinh.text()}\nnationality:{self.mySocket.quoc_tich.text()}\ntram:{self.mySocket.tram_xe.text()}\ntuyen:{get_route_code(self.mySocket.tuyen.text())}\nbien:{self.mySocket.bien_so.text()}"
+                    data = f"time:{current_time}\nid:{g_so_cccd}\nname:{self.mySocket.ho_ten.text()}\nbirth:{convert_date_format(self.mySocket.ngay_sinh.text())}\ngender:{self.mySocket.gioi_tinh.text()}\nnationality:{self.mySocket.quoc_tich.text()}\ntram:{self.mySocket.tram_xe.text()}\ntuyen:{get_route_code(self.mySocket.tuyen.text())}\nbien:{self.mySocket.bien_so.text()}"
                     print(data)
-                    target_url = "http://nguyengiang2603-1.infinityfreeapp.com/project/recieve_json.php"
+                    target_url = "http://nguyengiang2603-1.infinityfreeapp.com/project/receive_his.php"
                     query_params = {
                         "text":{data},
                     }
-                    status, content = server.bypass_infinityfree(target_url, query_params)
-                    print(f"Status: {status}")
-                    print(content)
+                    try:
+                        status, content = server.bypass_infinityfree(target_url, query_params)
+                        if status == 200 and content[0] != '1':
+                            self.mySocket.log.setText("Xin mời quý khách lên xe !")
+                            playsound("ok.mp3")
+                        elif status == 200 and content[0] == '1':
+                            # print(content)
+                            self.mySocket.log.setText("Quý khách vui lòng thanh toán 10.000đ !")
+                            playsound("no.mp3")
+                        else:
+                            self.mySocket.log.setText("Vui lòng kiểm tra lại wifi !")
+                        print(f"Status: {status}")
+                    except Exception as e:
+                        print(f"Lỗi khi gửi dữ liệu: {e}")
+                        self.mySocket.log.setText("Vui lòng kiểm tra lại wifi !")
+
+                    # Đảm bảo luôn reset biến sau cùng:
                     g_so_cccd = ""
                     g_ngay_cap = ""
                     g_ngay_het_han = ""
@@ -260,6 +332,7 @@ class socketThreadClass(threading.Thread):
                     timeout = 60
                     timeoutflag = True
                     t = time.time()
+
                     # print(f"CCCD: {g_so_cccd}")
                     # print(f"Ngày cấp: {g_ngay_cap}")
                     # print(f"Ngày hết hạn: {g_ngay_het_han}")
@@ -322,9 +395,25 @@ def runTest():
     
     mySocket.label_logo.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/logo_t07.png"))
     mySocket.avt.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/cccd.jpg"))
-    mySocket.avt_2.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/bus.png"))
-    # ui.showFullScreen()
-    ui.show()
+    mySocket.avt_2.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/xe_buyt_hn.png"))
+    mySocket.avt_3.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/info.png"))
+    font = QtGui.QFont("Arial",30, QtGui.QFont.Bold)  # Chọn font Arial, cỡ 14, in đậm
+    mySocket.log.setFont(font)
+    mySocket.log.setStyleSheet("color: blue;")  # Đổi màu chữ thành xanh
+
+    mySocket.log.setText("🚍 Xe buýt Hà Nội xin chào quý khách! 🚍")  # Thêm icon xe buýt nếu cần
+    # mySocket.log.setText("Xe buýt Hà Nội xin chào quý khách !")
+    # new_lat, new_lon = 12.0285, 105.852
+
+    #     # Mã JavaScript để thay đổi tọa độ marker
+    # js_code = f"""
+    #         window.changeMarkerCoordinates({new_lat}, {new_lon});
+    #     """
+        
+    #     # Chạy mã JavaScript trên trang web nhúng
+    # mySocket.webEngineView.page().runJavaScript(js_code)
+    ui.showFullScreen()
+    # ui.show()
     # ui.setStyleSheet(design.app_style)
     app.exec_()
     # wifi_thread = threading.Thread(target=monitor_wifi, daemon=True)
@@ -347,17 +436,17 @@ def runTest():
 #             time.sleep(2)
 #             os.system(f"echo {password} | sudo -S nmcli device connect {interface}") 
 if __name__ == "__main__":
-    # interface = "enu1"  # Thay bằng tên giao diện mạng của bạn
-    # password = "1"
+    interface = "enu1"  # Thay bằng tên giao diện mạng của bạn
+    password = "1"
 
     # # Tắt mạng
-    # # time.sleep(5)
-    # os.system(f"echo {password} | sudo -S nmcli device disconnect {interface}")
-    # time.sleep(5)
+    time.sleep(5)
+    os.system(f"echo {password} | sudo -S nmcli device disconnect {interface}")
+    time.sleep(5)
 
     # # Bật mạng
-    # os.system(f"echo {password} | sudo -S nmcli device connect {interface}")
-    # time.sleep(5)
+    os.system(f"echo {password} | sudo -S nmcli device connect {interface}")
+    time.sleep(5)
    
     # # Khởi động luồng theo dõi WiFi
     

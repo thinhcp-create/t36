@@ -1,0 +1,143 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaflet Map with Marker</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+</head>
+<body>
+    <div id="map" style="width: 100%; height: 90vh;"></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script>
+        // Khởi tạo bản đồ với tọa độ mặc định
+        var map = L.map('map').setView([20.9798, 105.8321], 15);  // Tọa độ mặc định
+
+        // Thêm tile layer
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Tạo marker với tọa độ mặc định
+        var marker = L.marker([21.041000463711462, 106.09933048084626]).addTo(map);
+
+        // Hàm thay đổi tọa độ của marker (sẽ được gọi từ PyQt5)
+        function changeMarkerCoordinates(lat, lon) {
+            marker.setLatLng([lat, lon]);  // Cập nhật tọa độ của marker
+            map.setView([lat, lon], 15);  // Cập nhật bản đồ để hiển thị tại vị trí mới
+        }
+
+        // Lưu trữ đối tượng `map` và `marker` để có thể truy cập từ PyQt5
+        window.map = map;
+        window.marker = marker;
+        window.changeMarkerCoordinates = changeMarkerCoordinates;
+    </script>
+</body>
+</html> -->
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaflet Map with Bus Marker</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <style>
+        .bus-icon {
+            background: none;
+            border: none;
+        }
+        .bus-icon i {
+            color: #FF5733; /* Orange color for bus */
+            font-size: 24px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="map" style="width: 100%; height: 90vh;"></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script>
+        // Khởi tạo bản đồ với tọa độ mặc định
+        var map = L.map('map').setView([20.9798, 105.8321], 15);  // Tọa độ mặc định
+
+        // Thêm tile layer
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Tạo custom bus icon
+        var BusIcon = L.DivIcon.extend({
+            options: {
+                className: 'bus-icon',
+                html: '<i class="fas fa-bus"></i>',
+                iconSize: [24, 24]
+            }
+        });
+        
+        // Tạo marker với tọa độ mặc định và bus icon
+        var marker = L.marker([21.041000463711462, 106.09933048084626], {
+            icon: new BusIcon()
+        }).addTo(map);
+
+        // Hàm thay đổi tọa độ của marker (sẽ được gọi từ PyQt5)
+        function changeMarkerCoordinates(lat, lon) {
+            marker.setLatLng([lat, lon]);  // Cập nhật tọa độ của marker
+            map.setView([lat, lon], 15);  // Cập nhật bản đồ để hiển thị tại vị trí mới
+        }
+
+        // Lưu trữ đối tượng `map` và `marker` để có thể truy cập từ PyQt5
+        window.map = map;
+        window.marker = marker;
+        window.changeMarkerCoordinates = changeMarkerCoordinates;
+    </script>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaflet Map with Bus Marker</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+</head>
+<body>
+    <div id="map" style="width: 100%; height: 90vh;"></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script>
+        // Khởi tạo bản đồ với tọa độ mặc định
+        var map = L.map('map').setView([20.9798, 105.8321], 15);
+
+        // Thêm tile layer
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Tạo custom bus icon từ URL hình ảnh
+        var busIcon = L.icon({
+    iconUrl: 'bus.png', // Đường dẫn tương đối
+    iconSize: [50, 50],
+    // iconAnchor: [16, 16]
+});
+        
+        // Tạo marker với bus icon
+        var marker = L.marker([21.041000463711462, 106.09933048084626], {
+            icon: busIcon
+        }).addTo(map);
+
+        // Hàm thay đổi tọa độ
+        function changeMarkerCoordinates(lat, lon) {
+            marker.setLatLng([lat, lon]);
+            map.setView([lat, lon], 15);
+        }
+
+        window.changeMarkerCoordinates = changeMarkerCoordinates;
+    </script>
+</body>
+</html>
