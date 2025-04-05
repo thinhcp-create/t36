@@ -42,8 +42,12 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
 from PyQt5.QtCore import QUrl
+from PyQt5.QtGui import QCursor
+from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
 global gps
-global timeout,timeoutflag,t,count
+global timeout,timeoutflag,t,count,q
+q = 0
 count = 0
 timeout = 0
 t = time.time()
@@ -74,17 +78,36 @@ def get_route_code(route_str):
     """
     match = re.match(r"^\s*(\d+)\s*:", route_str)
     return match.group(1) if match else None
-def get_station(lat, lon):
-    stations = {
-        "A": {"lat_min": 20.95, "lat_max": 20.99, "lon_min": 105.82, "lon_max": 105.85},
-        "B": {"lat_min": 20.90, "lat_max": 20.94, "lon_min": 105.84, "lon_max": 105.87},
-        "C": {"lat_min": 20.95, "lat_max": 21.00, "lon_min": 105.87, "lon_max": 105.90},
-        "D": {"lat_min": 20.97, "lat_max": 21.01, "lon_min": 105.88, "lon_max": 105.92},
-    }
-    for station, bounds in stations.items():
-        if bounds["lat_min"] <= lat <= bounds["lat_max"] and bounds["lon_min"] <= lon <= bounds["lon_max"]:
-            return station
-    return "N/A"
+from math import radians, sin, cos, sqrt, atan2
+def find_nearest(lat, lon):
+    """Tìm địa điểm gần nhất với tọa độ đầu vào."""
+    places = [
+        {"name": "Bách hóa Thanh Xuân", "coords": [21.01260, 105.80138]},
+        {"name": "Chợ Thượng Đình", "coords": [20.99880, 105.81184]},
+        {"name": "Tổng Công ty Đường sắt Việt Nam", "coords": [21.02575, 105.84145]},
+        {"name": "Đại học Khoa học - Tự nhiên", "coords": [20.99600, 105.80915]},
+        {"name": "Bệnh viện Phụ sản Trung ương", "coords": [21.02672, 105.84756]},
+        {"name": "Bệnh viện Bạch Mai", "coords": [21.00102, 105.84150]},
+        {"name": "Cung Thiếu Nhi Hà Nội", "coords": [21.02822, 105.85562]},
+        {"name": "KCN Biên Giang, Hà Đông, Hà Nội", "coords": [20.93092, 105.71587]},
+        {"name": "Học viện Bưu Chính Viễn Thông", "coords": [20.93721, 105.75749]},
+        {"name": "Văn miếu Quốc Tử Giám", "coords": [21.02754, 105.83520]},
+        {"name": "Trường Đại Học Kỹ Thuật - Hậu Cần CAND", "coords": [21.041000463711462, 106.09933048084626]}
+    ]
+    
+    R = 6371  # Bán kính Trái Đất (km)
+    min_distance, nearest_place = float('inf'), None
+    
+    for place in places:
+        lat1, lon1, lat2, lon2 = map(radians, [lat, lon, *place['coords']])
+        dlat, dlon = lat2 - lat1, lon2 - lon1
+        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+        distance = R * 2 * atan2(sqrt(a), sqrt(1 - a))
+        
+        if distance < min_distance:
+            min_distance, nearest_place = distance, place['name']
+    
+    return nearest_place
 
 class UARTReceiveThread(threading.Thread):
     def __init__(self,mySocket, ser, queue_uart):
@@ -95,7 +118,7 @@ class UARTReceiveThread(threading.Thread):
         self.mySocket = mySocket
         if self.ser is not None and self.ser.is_open == True:
             self.mySocket.toa_do.setText("Đang chờ dữ liệu GPS...")
-            self.mySocket.tram_xe.setText("A")
+            self.mySocket.tram_xe.setText("N/A")
         
         # print("Đang chờ dữ liệu GPS...")
     def run(self):
@@ -133,6 +156,8 @@ class UARTReceiveThread(threading.Thread):
                         self.mySocket.log.setText("🚍 Xe buýt Hà Nội xin chào quý khách! 🚍")  # Thêm icon xe buýt nếu cần
                         self.mySocket.avt.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/cccd.jpg"))
                         # print("Đã xóa toàn bộ dữ liệu hiển thị")
+                        global q
+                        q = 0
                         timeoutflag = False
                         t = time.time()
                 except Exception as e:
@@ -148,6 +173,7 @@ class UARTReceiveThread(threading.Thread):
                         self.mySocket.log.setText("🚍 Xe buýt Hà Nội xin chào quý khách! 🚍")  # Thêm icon xe buýt nếu cần
                         self.mySocket.avt.setPixmap(QtGui.QPixmap("/home/admin1/Documents/test_qt5/cccd.jpg"))
                         # print("Đã xóa toàn bộ dữ liệu hiển thị")
+                        
                         timeoutflag = False
                         t = time.time()
             try:
@@ -166,13 +192,16 @@ class UARTReceiveThread(threading.Thread):
                                     continue
                                 # print(msg.latitude)
                                 # print(msg.longitude)
-                                self.mySocket.tram_xe.setText(get_station(msg.latitude, msg.longitude))
+                                self.mySocket.tram_xe.setText(find_nearest(msg.latitude, msg.longitude))
                                 global count
                                 count = count +1
                                 if count > 6:
                                     # update_map(self.mySocket, msg.latitude, msg.longitude)
-                                    self.mySocket.on_load_finished(msg.latitude, msg.longitude)
-                                    count = 0
+                                    try:
+                                        self.mySocket.on_load_finished(msg.latitude, msg.longitude)
+                                        count = 0
+                                    except Exception as e: 
+                                        count = count - 1
 
                     
                                 #
@@ -193,7 +222,7 @@ class UARTReceiveThread(threading.Thread):
                         print(f"UART Receive Error: {e}")
             except (serial.SerialException, OSError) as e:
                 self.mySocket.toa_do.setStyleSheet("color: red")
-                self.mySocket.tram_xe.setText("")
+                self.mySocket.tram_xe.setText("N/A")
                 self.ser.is_open = False
                 self.mySocket.toa_do.setText("Không thể kết nối với module GPS!")
             time.sleep(0.01)
@@ -223,12 +252,13 @@ def base64_to_pixmap(base64_string):
 # def update_map(ui, lat, lon):
 #     js_code = f"window.changeMarkerCoordinates({lat}, {lon});"
 #     QMetaObject.invokeMethod(ui.webEngineView.page(), "runJavaScript",Qt.QueuedConnection, js_code)
-
+from pynput.mouse import Controller
 class mySocketClass(guiHandle):
     def __init__(self,mygui,so_cccd,ngay_cap,ngay_het_han,ho_ten,ngay_sinh,gioi_tinh,que_quan,quoc_tich):
         # print('inited mySocket instance inherit from ',super().nameClass)
         guiHandle.__init__(self,mygui)
         self.webEngineView.loadFinished.connect(self.on_load_finished)
+   
     def on_load_finished(self,lat= None,lon = None):
         # Thay đổi tọa độ
         if lat is None or lon is None:
@@ -265,7 +295,7 @@ class socketThreadClass(threading.Thread):
 
         @self.sio.on('/event')
         def on_event(data):
-            global g_so_cccd, g_ngay_cap, g_ngay_het_han, g_ho_ten, g_ngay_sinh, g_gioi_tinh, g_que_quan
+            global g_so_cccd, g_ngay_cap, g_ngay_het_han, g_ho_ten, g_ngay_sinh, g_gioi_tinh, g_que_quan,q
             try:
                 if isinstance(data, dict) and data.get('id') == 4 and "data" in data:
                     info = data["data"]  # Trích xuất dữ liệu con trong "data"
@@ -298,26 +328,33 @@ class socketThreadClass(threading.Thread):
                     self.mySocket.quoc_tich.setText(g_quoc_tich)
                     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     data = f"time:{current_time}\nid:{g_so_cccd}\nname:{self.mySocket.ho_ten.text()}\nbirth:{convert_date_format(self.mySocket.ngay_sinh.text())}\ngender:{self.mySocket.gioi_tinh.text()}\nnationality:{self.mySocket.quoc_tich.text()}\ntram:{self.mySocket.tram_xe.text()}\ntuyen:{get_route_code(self.mySocket.tuyen.text())}\nbien:{self.mySocket.bien_so.text()}"
-                    print(data)
+                    # print(data)
                     target_url = "http://nguyengiang2603-1.infinityfreeapp.com/project/receive_his.php"
                     query_params = {
                         "text":{data},
                     }
+                    # print (query_params)
                     try:
                         status, content = server.bypass_infinityfree(target_url, query_params)
                         if status == 200 and content[0] != '1':
-                            self.mySocket.log.setText("Xin mời quý khách lên xe !")
-                            playsound("ok.mp3")
+                            q = q +1
+                            self.mySocket.log.setText(f"Xin mời quý khách lên xe !\n Lượt : {q}")
+                            playsound("/home/admin1/Documents/test_qt5/ok.mp3")
                         elif status == 200 and content[0] == '1':
+                            q = q +1
                             # print(content)
-                            self.mySocket.log.setText("Quý khách vui lòng thanh toán 10.000đ !")
-                            playsound("no.mp3")
+                            self.mySocket.log.setText(f"Quý khách vui lòng thanh toán 10.000đ !\n Lượt : {q}")
+                            playsound("/home/admin1/Documents/test_qt5/no.mp3")
                         else:
-                            self.mySocket.log.setText("Vui lòng kiểm tra lại wifi !")
-                        print(f"Status: {status}")
+                            self.mySocket.log.setText("Vui lòng kiểm tra lại Wifi !")
+                            # self.mySocket.log.setText(content)
+                            # self.mySocket.que_quan.setText(status)
+                        # print(f"Status: {status}")
                     except Exception as e:
-                        print(f"Lỗi khi gửi dữ liệu: {e}")
-                        self.mySocket.log.setText("Vui lòng kiểm tra lại wifi !")
+                        # print(f"Lỗi khi gửi dữ liệu: {e}")
+                        self.mySocket.log.setText(f"{e}")
+                        # self.mySocket.que_quan.setText(content)
+                        # self.mySocket.gioi_tinh.setText(status)
 
                     # Đảm bảo luôn reset biến sau cùng:
                     g_so_cccd = ""
@@ -415,16 +452,29 @@ def runTest():
     ui.showFullScreen()
     # ui.show()
     # ui.setStyleSheet(design.app_style)
+    app.setOverrideCursor(QCursor(Qt.BlankCursor))
+    # event = QEvent(QEvent.MouseMove)
+    # app.sendEvent(ui, event)  # Gửi sự kiện đến cửa sổ chính
+    # move_mouse_once()
+    
     app.exec_()
     # wifi_thread = threading.Thread(target=monitor_wifi, daemon=True)
     # wifi_thread.start()
-    print('window close')
+    # print('window close')
     uart_receive_thread.stop()
     uart_receive_thread.join()
     sio.disconnect()  # Ngắt kết nối trước khi kết thúc chương trình
+    # socketThread.stop()  # Đợi thread hoàn thành
+    # sys.exit(0)  # Thoát chương trình bình thường
+
     socketThread.join()  # Đợi thread hoàn thành
-    print('done')
+    # print('done')
 #  # Hàm theo dõi sự kiện WiFi
+# def move_mouse_once():
+#         # Di chuyển chuột đến vị trí (200, 150)
+#         mouse_controller = Controller()
+#         mouse_controller.position = (0, 0)
+        # print("fuck")
 # def monitor_wifi():
 #     print("Bắt đầu theo dõi sự kiện WiFi...")
 #     process = subprocess.Popen(["nmcli", "monitor"], stdout=subprocess.PIPE, text=True)
@@ -440,13 +490,13 @@ if __name__ == "__main__":
     password = "1"
 
     # # Tắt mạng
-    time.sleep(5)
-    os.system(f"echo {password} | sudo -S nmcli device disconnect {interface}")
-    time.sleep(5)
+    # time.sleep(5)
+    # os.system(f"echo {password} | sudo -S nmcli device disconnect {interface}")
+    # time.sleep(5)
 
-    # # Bật mạng
-    os.system(f"echo {password} | sudo -S nmcli device connect {interface}")
-    time.sleep(5)
+    # # # Bật mạng
+    # os.system(f"echo {password} | sudo -S nmcli device connect {interface}")
+    # time.sleep(5)
    
     # # Khởi động luồng theo dõi WiFi
     

@@ -43,46 +43,74 @@ def save_cookie(cookie_val):
 
 def bypass_infinityfree(url, params):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     }
-
     session = requests.Session()
     cached_cookie = load_cached_cookie()
+    
     if cached_cookie:
-        print(f"Thử dùng cookie cache: {cached_cookie}")
-        resp_try = session.get(url, params=params, headers=headers, cookies={"__test": cached_cookie},timeout=20)
-        if "__test=" not in resp_try.text and "Javascript" not in resp_try.text:
-            print("Bypass thành công bằng cookie đã lưu.")
-            return resp_try.status_code, resp_try.text
-        else:
-            print("Cookie cached không dùng được, sẽ giải mã key mới.")
-    # Request đầu tiên để lấy JS challenge
-    response = session.get(url, params=params, headers=headers,timeout=20)
-    html = response.text
-
-    # Nếu có JS challenge
-    if "__test=" in html:
-        # Parse & giải mã cookie
-        cookie_val = solve_js_challenge(html)
-        print(f"Đã lấy cookie __test = {cookie_val}")
-        save_cookie(cookie_val)  # Lưu lại cookie cho lần sau
-        # Gửi request lần hai với cookie
-        cookies = {
-            "__test": cookie_val
-        }
-        response_2 = session.get(url, params=params, headers=headers, cookies=cookies,timeout=20)
-        return response_2.status_code, response_2.text
+        response = session.get(url, params=params, headers=headers, cookies={"__test": cached_cookie}, timeout=20 ,allow_redirects=False)
+        # print(response.text)
+        # print(response.history)
+        if "__test=" not in response.text and "Javascript" not in response.text:
+            return response.status_code, response.text
     else:
-        # Không bị challenge, trả về luôn
-        return response.status_code, response.text
-# data = "tai_khoan:user02mat_khau:pass02"
-# if __name__ == "__main__":
-#     target_url = "http://nguyengiang2603-1.infinityfreeapp.com/project/recieve_json.php"
-#     query_params = {
-#         "text":{data},
+        response = session.get(url, params=params, headers=headers, timeout=20, allow_redirects=False)
+        # print(response.history)
+        # print(response.text)
+    # print("lol\n")
+    if "__test=" in response.text:
+        cookie_val = solve_js_challenge(response.text)
+        save_cookie(cookie_val)
+        response = session.get(url, params=params, headers=headers, cookies={"__test": cookie_val}, timeout=20, allow_redirects=False)
+    
+    return response.status_code, response.text
+
+
+
+# def bypass_infinityfree(url, params):
+#     headers = {
+#         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+#         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
 #     }
 
-#     status, content = bypass_infinityfree(target_url, query_params)
-#     print(f"Status: {status}")
-#     print(content)
+#     session = requests.Session()
+#     cached_cookie = load_cached_cookie()
+#     if cached_cookie:
+#         print(f"Thử dùng cookie cache: {cached_cookie}")
+#         resp_try = session.get(url, params=params, headers=headers, cookies={"__test": cached_cookie},timeout=20)
+#         if "__test=" not in resp_try.text and "Javascript" not in resp_try.text:
+#             print("Bypass thành công bằng cookie đã lưu.")
+#             return resp_try.status_code, resp_try.text
+#         else:
+#             print("Cookie cached không dùng được, sẽ giải mã key mới.")
+#     # Request đầu tiên để lấy JS challenge
+#     response = session.get(url, params=params, headers=headers,timeout=20)
+#     html = response.text
+
+#     # Nếu có JS challenge
+#     if "__test=" in html:
+#         # Parse & giải mã cookie
+#         cookie_val = solve_js_challenge(html)
+#         print(f"Đã lấy cookie __test = {cookie_val}")
+#         save_cookie(cookie_val)  # Lưu lại cookie cho lần sau
+#         # Gửi request lần hai với cookie
+#         cookies = {
+#             "__test": cookie_val
+#         }
+#         response_2 = session.get(url, params=params, headers=headers, cookies=cookies,timeout=20)
+#         return response_2.status_code, response_2.text
+#     else:
+#         # Không bị challenge, trả về luôn
+#         return response.status_code, response.text
+# # data = "tai_khoan:user02mat_khau:pass02"
+# # if __name__ == "__main__":
+# #     target_url = "http://nguyengiang2603-1.infinityfreeapp.com/project/recieve_json.php"
+# #     query_params = {
+# #         "text":{data},
+# #     }
+
+# #     status, content = bypass_infinityfree(target_url, query_params)
+# #     print(f"Status: {status}")
+# #     print(content)

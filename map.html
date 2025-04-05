@@ -1,103 +1,3 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leaflet Map with Marker</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
-</head>
-<body>
-    <div id="map" style="width: 100%; height: 90vh;"></div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
-    <script>
-        // Khởi tạo bản đồ với tọa độ mặc định
-        var map = L.map('map').setView([20.9798, 105.8321], 15);  // Tọa độ mặc định
-
-        // Thêm tile layer
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
-        
-        // Tạo marker với tọa độ mặc định
-        var marker = L.marker([21.041000463711462, 106.09933048084626]).addTo(map);
-
-        // Hàm thay đổi tọa độ của marker (sẽ được gọi từ PyQt5)
-        function changeMarkerCoordinates(lat, lon) {
-            marker.setLatLng([lat, lon]);  // Cập nhật tọa độ của marker
-            map.setView([lat, lon], 15);  // Cập nhật bản đồ để hiển thị tại vị trí mới
-        }
-
-        // Lưu trữ đối tượng `map` và `marker` để có thể truy cập từ PyQt5
-        window.map = map;
-        window.marker = marker;
-        window.changeMarkerCoordinates = changeMarkerCoordinates;
-    </script>
-</body>
-</html> -->
-
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leaflet Map with Bus Marker</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-    <style>
-        .bus-icon {
-            background: none;
-            border: none;
-        }
-        .bus-icon i {
-            color: #FF5733; /* Orange color for bus */
-            font-size: 24px;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-        }
-    </style>
-</head>
-<body>
-    <div id="map" style="width: 100%; height: 90vh;"></div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
-    <script>
-        // Khởi tạo bản đồ với tọa độ mặc định
-        var map = L.map('map').setView([20.9798, 105.8321], 15);  // Tọa độ mặc định
-
-        // Thêm tile layer
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
-        
-        // Tạo custom bus icon
-        var BusIcon = L.DivIcon.extend({
-            options: {
-                className: 'bus-icon',
-                html: '<i class="fas fa-bus"></i>',
-                iconSize: [24, 24]
-            }
-        });
-        
-        // Tạo marker với tọa độ mặc định và bus icon
-        var marker = L.marker([21.041000463711462, 106.09933048084626], {
-            icon: new BusIcon()
-        }).addTo(map);
-
-        // Hàm thay đổi tọa độ của marker (sẽ được gọi từ PyQt5)
-        function changeMarkerCoordinates(lat, lon) {
-            marker.setLatLng([lat, lon]);  // Cập nhật tọa độ của marker
-            map.setView([lat, lon], 15);  // Cập nhật bản đồ để hiển thị tại vị trí mới
-        }
-
-        // Lưu trữ đối tượng `map` và `marker` để có thể truy cập từ PyQt5
-        window.map = map;
-        window.marker = marker;
-        window.changeMarkerCoordinates = changeMarkerCoordinates;
-    </script>
-</body>
-</html> -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -105,38 +5,89 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leaflet Map with Bus Marker</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>  <!-- Thêm MQTT.js -->
 </head>
 <body>
     <div id="map" style="width: 100%; height: 90vh;"></div>
     
     <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
-        // Khởi tạo bản đồ với tọa độ mặc định
-        var map = L.map('map').setView([20.9798, 105.8321], 15);
+        // MQTT broker thông tin
+        const broker = "wss://7a57677d6c9f4a5cbdaea4e43d9cc7b5.s1.eu.hivemq.cloud:8884/mqtt";  // Địa chỉ MQTT Broker
+        const topic = "/99A-00001/location"; // Topic sẽ publish vị trí
+        const username = "Bus12345"; // Username
+        const password = "Bus12345"; // Password
 
+        // Khởi tạo MQTT client
+        const client = mqtt.connect(broker, {
+            username: username,
+            password: password,
+            clean: true
+            
+        });
+
+        // client.on('connect', () => {
+        //     console.log('Connected to MQTT broker');
+        // });
+
+        // Hàm publish vị trí đến MQTT
+        function publishLocation(lat, lon) {
+            const payload = lat + ',' + lon;  // Chuyển tọa độ thành chuỗi văn bản
+            client.publish(topic, payload);
+        }
+
+        // Khởi tạo bản đồ với tọa độ mặc định
+        var map = L.map('map').setView([20.9798, 105.8321], 15);  // Tọa độ mặc định
+        // Tạo LayerGroup chứa marker
+        var markersLayer = new L.LayerGroup().addTo(map);
+
+        // Danh sách các địa điểm với tọa độ
+        var places = [
+            { name: "Bách hóa Thanh Xuân", coords: [21.01260, 105.80138] },
+            { name: "Chợ Thượng Đình", coords: [20.99880, 105.81184] },
+            { name: "Tổng Công ty Đường sắt Việt Nam", coords: [21.02575,105.84145] },
+            { name: "Đại học Khoa học - Tự nhiên", coords: [20.99600,105.80915] },
+            { name: "Bệnh viện Phụ sản Trung ương", coords: [21.02672,105.84756] },
+            { name: "Bệnh viện Bạch Mai", coords: [21.00102,105.84150] },
+            { name: "Cung Thiếu Nhi Hà Nội", coords: [21.02822,105.85562] },
+            { name: "KCN Biên Giang, Hà Đông, Hà Nội", coords: [20.93092,105.71587] },
+            { name: "Học viện Bưu Chính Viễn Thông", coords: [20.93721,105.75749] },
+            { name: "Văn miếu Quốc Tử Giám", coords: [21.02754,105.83520] },
+            { name: "Trường Đại Học Kỹ Thuật - Hậu Cần CAND", coords: [21.041000463711462, 106.09933048084626] },
+        ];
+
+        // Thêm marker và tooltip cố định
+        places.forEach(place => {
+            L.marker(place.coords)
+                .bindTooltip(place.name, { permanent: true, direction: "top" }) // Hiển thị tooltip cố định
+                .addTo(markersLayer);
+        });
         // Thêm tile layer
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
+            attribution: 'T36 - Trường Đại Học Kỹ Thuật - Hậu Cần CAND'
         }).addTo(map);
         
         // Tạo custom bus icon từ URL hình ảnh
         var busIcon = L.icon({
-    iconUrl: 'bus.png', // Đường dẫn tương đối
-    iconSize: [50, 50],
-    // iconAnchor: [16, 16]
-});
+            iconUrl: 'bus.png',  // Đường dẫn tương đối đến ảnh bus icon
+            iconSize: [50, 50],
+        });
         
         // Tạo marker với bus icon
         var marker = L.marker([21.041000463711462, 106.09933048084626], {
             icon: busIcon
         }).addTo(map);
 
-        // Hàm thay đổi tọa độ
+        // Hàm thay đổi tọa độ của marker và publish lên MQTT
         function changeMarkerCoordinates(lat, lon) {
-            marker.setLatLng([lat, lon]);
-            map.setView([lat, lon], 15);
+            marker.setLatLng([lat, lon]);  // Cập nhật tọa độ của marker
+            map.setView([lat, lon], 15);  // Cập nhật bản đồ để hiển thị tại vị trí mới
+            publishLocation(lat, lon);  // Publish vị trí mới lên MQTT
         }
 
+        // Lưu trữ đối tượng `map` và `marker` để có thể truy cập từ PyQt5 hoặc các nơi khác
+        window.map = map;
+        window.marker = marker;
         window.changeMarkerCoordinates = changeMarkerCoordinates;
     </script>
 </body>
